@@ -10,7 +10,7 @@ from .utils import format_hashrate, format_timestamp, get_worker_short_name
 from .bot import bot, authorized_chats, build_mode_keyboard, delete_message_later, worker_stats, worker_id_to_name
 
 logger = logging.getLogger(__name__)
-LOG_FILE_PATH = "/home/simple1/miningcore/logs/mcpool.log"
+LOG_FILE_PATH = "/home/simple1/logs/mcpool.log"
 
 class LogParser(FileSystemEventHandler):
     def __init__(self, loop):

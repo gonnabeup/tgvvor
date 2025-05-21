@@ -3,8 +3,8 @@ import logging
 import os
 
 logger = logging.getLogger(__name__)
-CONFIG_PATH = "/home/simple1/miningcore/config/config.json"
-CURRENT_MODE_PATH = "/home/simple1/miningcore/data/current_mode.txt"
+CONFIG_PATH = "/home/simple1/bot/config/config.json"
+CURRENT_MODE_PATH = "/home/simple1/bot/data/current_mode.txt"
 
 def validate_config(config):
     required_fields = ["modes"]

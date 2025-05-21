@@ -7,6 +7,7 @@ from .utils import setup_logging
 logger = logging.getLogger(__name__)
 CONFIG = load_config()
 active_clients = set()
+conport = 3310
 
 async def handle_client(miner_reader, miner_writer, current_mode):
     addr = miner_writer.get_extra_info('peername')
@@ -131,7 +132,7 @@ async def manage_server(current_mode, server_task):
 
                 if new_mode != "сон":
                     server = await asyncio.start_server(
-                        lambda r, w: handle_client(r, w, current_mode[0]), '0.0.0.0', 3333
+                        lambda r, w: handle_client(r, w, current_mode[0]), '0.0.0.0', conport
                     )
                     addr = server.sockets[0].getsockname()
                     logger.info(f"Слушаем на {addr} в режиме '{new_mode}'")
@@ -180,7 +181,7 @@ async def main():
 
     if current_mode[0] != "сон":
         server = await asyncio.start_server(
-            lambda r, w: handle_client(r, w, current_mode[0]), '0.0.0.0', 3333
+            lambda r, w: handle_client(r, w, current_mode[0]), '0.0.0.0', conport
         )
         addr = server.sockets[0].getsockname()
         logger.info(f"Слушаем на {addr} в режиме '{current_mode[0]}'")

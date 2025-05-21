@@ -4,10 +4,10 @@ import os
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
-CONFIG_PATH = "/home/simple1/miningcore/config/config.json"
-USER_SETTINGS_PATH = "/home/simple1/miningcore/config/user_settings.json"
-CURRENT_MODE_PATH = "/home/simple1/miningcore/data/current_mode.txt"
-LAST_MODE_CHANGE_PATH = "/home/simple1/miningcore/data/last_mode_change.json"
+CONFIG_PATH = "/home/simple1/bot/config/config.json"
+USER_SETTINGS_PATH = "/home/simple1/bot/config/user_settings.json"
+CURRENT_MODE_PATH = "/home/simple1/bot/data/current_mode.txt"
+LAST_MODE_CHANGE_PATH = "/home/simple1/bot/data/last_mode_change.json"
 
 def validate_config(config):
     required_fields = ["modes", "users", "nodes", "hashrate_log_path", "current_mode_path"]
