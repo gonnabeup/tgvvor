@@ -195,19 +195,15 @@ async def settings_callback(callback: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data.startswith("set_timezone:"))
 async def set_timezone_callback(callback: types.CallbackQuery):
     chat_id = callback.message.chat.id
-    if chat_id not in authorized_chats:
-        await callback.answer("❌ Доступ запрещён.")
-        return
     timezone = callback.data.split(":", 1)[1]
-    if timezone not in TIMEZONES:
-        await callback.answer("Некорректный часовой пояс.")
-        return
+    user_settings = load_user_settings()  # Load current settings
     user_settings[str(chat_id)] = {"timezone": timezone}
-    save_user_settings()
+    save_user_settings(user_settings)     # Pass as argument!
+    await callback.answer(f"Часовой пояс установлен: {timezone}")
     await callback.message.edit_text(
-        f"✅ Часовой пояс установлен: *{TIMEZONES[timezone]}*",
+        "✅ Часовой пояс обновлён.",
         parse_mode=ParseMode.MARKDOWN,
-        reply_markup=build_mode_keyboard()
+        reply_markup=build_settings_keyboard()
     )
     await callback.answer()
 
