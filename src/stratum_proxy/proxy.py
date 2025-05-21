@@ -167,9 +167,11 @@ async def shutdown(loop, server_task):
         except asyncio.CancelledError:
             pass
     await asyncio.sleep(0.5)
-    loop.stop()
-    loop.run_until_complete(loop.shutdown_asyncgens())
-    loop.close()
+    # Remove these lines:
+    # loop.stop()
+    # loop.run_until_complete(loop.shutdown_asyncgens())
+    # loop.close()
+    await loop.shutdown_asyncgens()  # <-- Just await this
     logger.info("Прокси успешно остановлен")
 
 async def main():

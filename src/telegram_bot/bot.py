@@ -508,7 +508,8 @@ async def monitor_workers():
 async def start_log_monitoring():
     from .log_parser import LogParser
     from watchdog.observers import Observer
-    event_handler = LogParser()
+    loop = asyncio.get_running_loop()  # <-- Add this line
+    event_handler = LogParser(loop)    # <-- Pass loop here
     observer = Observer()
     observer.schedule(event_handler, path=CONFIG["log_file_path"], recursive=False)
     observer.start()
