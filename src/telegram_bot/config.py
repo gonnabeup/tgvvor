@@ -77,6 +77,18 @@ def save_user_settings(user_settings):
     except Exception as e:
         logger.error(f"Ошибка при сохранении {USER_SETTINGS_PATH}: {e}")
 
+def get_user_timezone(chat_id: int) -> str:
+    """
+    Returns the timezone for the given chat_id, or 'Europe/Moscow' if not set.
+    """
+    try:
+        user_settings = load_user_settings()
+        chat_id_str = str(chat_id)
+        return user_settings.get(chat_id_str, {}).get("timezone", "Europe/Moscow")
+    except Exception as e:
+        logger.error(f"Ошибка при получении часового пояса пользователя {chat_id}: {e}")
+        return "Europe/Moscow"
+
 def get_current_mode():
     try:
         with open(CURRENT_MODE_PATH, "r", encoding="utf-8") as f:
