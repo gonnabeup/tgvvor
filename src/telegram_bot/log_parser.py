@@ -7,7 +7,6 @@ from watchdog.events import FileSystemEventHandler
 from aiogram import Bot
 from .config import CONFIG, get_current_mode, modes
 from .utils import format_hashrate, format_timestamp, get_worker_short_name
-from .bot import bot, authorized_chats, build_mode_keyboard, delete_message_later, worker_stats, worker_id_to_name
 
 logger = logging.getLogger(__name__)
 LOG_FILE_PATH = "/home/simple1/logs/mcpool.log"
@@ -24,6 +23,8 @@ class LogParser(FileSystemEventHandler):
         asyncio.run_coroutine_threadsafe(self.parse_log(), self.loop)
 
     async def parse_log(self):
+        # Move the import here to avoid circular import
+        from .bot import bot, authorized_chats, build_mode_keyboard, delete_message_later, worker_stats, worker_id_to_name
         if not os.path.exists(LOG_FILE_PATH):
             logger.warning(f"Файл логов {LOG_FILE_PATH} не существует.")
             return
