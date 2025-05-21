@@ -135,6 +135,11 @@ def set_last_mode_change_time(mode):
         logger.error(f"Ошибка при записи в {LAST_MODE_CHANGE_PATH}: {e}")
 
 CONFIG = load_config()
+modes = CONFIG["modes"]
+users = CONFIG["users"]
+nodes = CONFIG["nodes"]
+hashrate_log_path = CONFIG.get("hashrate_log_path")
+current_mode_path = CONFIG.get("current_mode_path")
 TIMEZONES = {
     "Europe/Moscow": "Москва (+03:00)",
     "Europe/Samara": "Санкт-Петербург (+03:00)",
