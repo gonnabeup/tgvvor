@@ -1,8 +1,9 @@
 #!/bin/bash
 # Скрипт для установки зависимостей для Stratum-прокси и Telegram-бота с использованием виртуального окружения
 
-# Базовая директория проекта — директория, где находится скрипт
-BASE_DIR=$(dirname "$(realpath "$0")")
+# Базовая директория проекта — родительская директория папки scripts/
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
+BASE_DIR=$(dirname "$SCRIPT_DIR")
 VENV_DIR="$BASE_DIR/venv"
 
 # Обновление системы
@@ -20,7 +21,7 @@ source "$VENV_DIR/bin/activate"
 
 # Установка Python-зависимостей в виртуальное окружение
 echo "Установка Python-зависимостей..."
-pip install aiogram==3.3.0 aiohttp==3.8.4 watchdog==2.1.9 pandas==1.5.3 pytz
+pip install aiogram==3.3.0 aiohttp==3.9.5 watchdog==2.1.9 pandas==1.5.3 pytz
 
 # Деактивация виртуального окружения (на случай, если скрипт используется интерактивно)
 deactivate
