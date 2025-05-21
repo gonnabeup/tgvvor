@@ -1,0 +1,18 @@
+﻿# Ignore logs
+logs/*
+!logs/.gitkeep
+
+# Ignore temporary files
+*.log
+*.csv
+*.pyc
+__pycache__/
+
+# Ignore sensitive data
+data/*
+!data/current_mode.txt
+!data/last_mode_change.json
+
+# Ignore Python dependencies
+venv/
+.env
