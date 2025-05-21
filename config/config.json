@@ -1,0 +1,43 @@
+{
+    "modes": {
+      "digi": {
+        "port": 3337,
+        "alias": {
+          "13v5a": "DHnU2ARYD6LxuBhTcH64BYoALzp5jEff76"
+        },
+        "coin": "DigiByte",
+        "algorithm": "SHA256",
+        "pool_id": "dgb-sha256-1"
+      },
+      "сон": {
+        "port": null,
+        "alias": {},
+        "coin": "None",
+        "algorithm": "None"
+      },
+      "binance": {
+        "host": "btc.poolbinance.com",
+        "port": 1800,
+        "alias": {
+          "13v5a": "niko8russian"
+        },
+        "coin": "BTC",
+        "algorithm": "SHA256"
+      }
+    },
+    "users": {
+      "13v5a": 356485207,
+      "superadmin": 1146015328
+    },
+    "nodes": {
+      "digibyte": {
+        "user": "LostAsteroid32",
+        "password": "TryToBruteThisMonster777",
+        "host": "127.0.0.1",
+        "port": 8345,
+        "coin": "DigiByte"
+      }
+    },
+    "hashrate_log_path": "/home/simple1/miningcore/logs/hashrate_log.csv",
+    "current_mode_path": "/home/simple1/miningcore/data/current_mode.txt"
+}
