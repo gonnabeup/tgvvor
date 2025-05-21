@@ -28,7 +28,14 @@ def get_worker_short_name(worker_id: str) -> str:
 
 def format_uptime(chat_id: int, last_mode_change: dict) -> str:
     current_time = datetime.now(timezone.utc)
-    uptime_seconds = (current_time - last_mode_change["timestamp"]).total_seconds()
+    timestamp = last_mode_change["timestamp"]
+    if isinstance(timestamp, str):
+        # Convert ISO string to datetime
+        timestamp = datetime.fromisoformat(timestamp)
+        # If your timestamps are always UTC, ensure tzinfo is set:
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+    uptime_seconds = (current_time - timestamp).total_seconds()
     hours = int(uptime_seconds // 3600)
     minutes = int((uptime_seconds % 3600) // 60)
     tz_name = get_user_timezone(chat_id)

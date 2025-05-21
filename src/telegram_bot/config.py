@@ -67,6 +67,8 @@ def load_user_settings():
         user_settings = {str(chat_id): {"timezone": default_timezone} for chat_id in CONFIG["users"].values()}
         with open(USER_SETTINGS_PATH, "w", encoding="utf-8") as f:
             json.dump(user_settings, f, ensure_ascii=False, indent=2)
+        # Optionally, you can add:
+        # save_user_settings(user_settings)
         return user_settings
 
 def save_user_settings(user_settings):
