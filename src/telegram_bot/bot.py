@@ -14,7 +14,7 @@ from .utils import format_hashrate, format_timestamp, get_worker_short_name, for
 from .log_parser import LogParser
 
 logger = logging.getLogger(__name__)
-bot = Bot(token=os.getenv("TELEGRAM_BOT_TOKEN", "7697561258:AAEtqnzCIQY5S5vIAGG2x5owJd2EfB0dvtk"))
+bot = Bot(token="Ytokeeeen")  
 dp = Dispatcher()
 modes = CONFIG["modes"]
 users = CONFIG["users"]
@@ -230,15 +230,15 @@ async def get_hashrate(node, session: aiohttp.ClientSession, algorithm: str):
     params = [120, -1]
     if algorithm == "sha256d":
         params.append("sha256d")
-    payload = json.dumps({
+    payload = {
         "method": "getnetworkhashps",
         "params": params,
         "id": 1,
         "jsonrpc": "2.0"
-    })
+    }
     auth = aiohttp.BasicAuth(node["user"], node["password"])
     try:
-        async with session.post(url, headers=headers, data=payload, auth=auth) as resp:
+        async with session.post(url, headers=headers, json=payload, auth=auth) as resp:
             if resp.status != 200:
                 logger.error(f"Ошибка RPC у {url}: статус {resp.status}")
                 return None
@@ -505,45 +505,50 @@ async def monitor_workers():
             worker_stats[worker_name] = stats
         await asyncio.sleep(60)
 
-async def start_log_monitoring(loop):
+async def start_log_monitoring():
     from .log_parser import LogParser
-    event_handler = LogParser(loop)
     from watchdog.observers import Observer
+    event_handler = LogParser()
     observer = Observer()
-    observer.schedule(event_handler, path=LOG_FILE_PATH, recursive=False)
+    observer.schedule(event_handler, path=CONFIG["log_file_path"], recursive=False)
     observer.start()
     try:
         while True:
             await asyncio.sleep(1)
     except asyncio.CancelledError:
         observer.stop()
-    observer.join()
+        raise
+    finally:
+        observer.join()
 
-async def shutdown(loop, bot):
+async def shutdown():
     logger.info("Остановка бота...")
-    tasks = [task for task in asyncio.all_tasks(loop) if task is not asyncio.current_task()]
+    tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
     for task in tasks:
         task.cancel()
+    try:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    except asyncio.CancelledError:
+        pass
     await bot.session.close()
-    await asyncio.sleep(0.5)
-    loop.stop()
-    loop.run_until_complete(loop.shutdown_asyncgens())
-    loop.close()
-    logger.info("Бот успешно остановлен")
+    logger.info("Сессия бота закрыта")
+    loop = asyncio.get_running_loop()
+    await loop.shutdown_asyncgens()
+    logger.info("Асинхронные генераторы завершены")
 
 async def main():
     from .utils import setup_logging
     setup_logging()
-    loop = asyncio.get_running_loop()
-    def handle_shutdown():
-        asyncio.create_task(shutdown(loop, bot))
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, handle_shutdown)
-    await asyncio.gather(
-        dp.start_polling(bot),
-        start_log_monitoring(loop),
-        monitor_workers()
-    )
+    logger.info("Запуск Telegram-бота...")
+    bot_task = asyncio.create_task(dp.start_polling(bot))
+    log_task = asyncio.create_task(start_log_monitoring())
+    worker_task = asyncio.create_task(monitor_workers())
+    try:
+        await asyncio.gather(bot_task, log_task, worker_task)
+    except asyncio.CancelledError:
+        await shutdown()
+        raise
 
 if __name__ == "__main__":
     asyncio.run(main())
+```
