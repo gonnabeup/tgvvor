@@ -224,8 +224,14 @@ async def get_hashrate(node, session: aiohttp.ClientSession, algorithm: str):
     url = f"http://{node['host']}:{node['port']}"
     headers = {"content-type": "application/json"}
     params = [120, -1]
-    if algorithm == "sha256d":
+    # --- PATCH START ---
+    # Check if this node is DigiByte and force "sha256d" param
+    coin = node.get("coin", "").lower()
+    if coin == "digibyte":
         params.append("sha256d")
+    elif algorithm.lower() == "sha256d":
+        params.append("sha256d")
+    # --- PATCH END ---
     payload = {
         "method": "getnetworkhashps",
         "params": params,
