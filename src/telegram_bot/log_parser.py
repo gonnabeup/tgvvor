@@ -9,7 +9,7 @@ from .config import CONFIG, get_current_mode, modes
 from .utils import format_hashrate, format_timestamp, get_worker_short_name
 
 logger = logging.getLogger(__name__)
-LOG_FILE_PATH = "/home/simple1/logs/mcpool.log"
+LOG_FILE_PATH = "/home/simple1/bot/mcpool.log"
 
 class LogParser(FileSystemEventHandler):
     def __init__(self, loop):
@@ -26,19 +26,22 @@ class LogParser(FileSystemEventHandler):
         # Move the import here to avoid circular import
         from .bot import bot, authorized_chats, build_mode_keyboard, delete_message_later, worker_stats, worker_id_to_name
         if not os.path.exists(LOG_FILE_PATH):
-            logger.warning(f"Файл логов {LOG_FILE_PATH} не существует.")
+            logger.error(f"Log file {LOG_FILE_PATH} does not exist.")
             return
+        logger.info(f"Parsing log file {LOG_FILE_PATH} from position {self.last_position}")
         try:
             current_mode = get_current_mode()
             current_pool_id = modes.get(current_mode, {"pool_id": f"{current_mode}-sha256-1"})["pool_id"]
             with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
                 f.seek(self.last_position)
                 lines = f.readlines()
+                logger.info(f"Read {len(lines)} new lines")
                 self.last_position = f.tell()
                 if not lines:
+                    logger.info("No new lines to parse")
                     return
                 for line in lines:
-                    logger.debug(f"Parsing line: {line.strip()}")
+                    logger.debug(f"Processing line: {line.strip()}")
                     if f"[{current_pool_id}]" not in line:
                         continue
                     worker_connect = re.search(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{1,6})\] \[I\] \[(\S+?)\] \[([A-Z0-9]+)\] Authorized worker (\S+)", line)
@@ -47,6 +50,7 @@ class LogParser(FileSystemEventHandler):
                         if pool_id != current_pool_id or worker_id.startswith("0HNCEBF7"):
                             continue
                         worker_id_to_name[worker_id] = worker_name
+                        logger.info(f"Mapped worker_id {worker_id} to worker_name {worker_name}")
                         self.active_workers.add(worker_name)
                         short_name = get_worker_short_name(worker_name)
                         if worker_name not in worker_stats or (worker_stats[worker_name]["last_seen"] < datetime.now(timezone.utc) - timedelta(seconds=600)):
@@ -56,7 +60,7 @@ class LogParser(FileSystemEventHandler):
                                 "shares": 0,
                                 "pool_id": pool_id
                             }
-                            logger.info(f"Воркер подключился: {short_name}, пул: {pool_id}")
+                            logger.info(f"Worker connected: {short_name}, pool: {pool_id}")
                             for chat_id in authorized_chats:
                                 message = await bot.send_message(
                                     chat_id,
@@ -76,8 +80,8 @@ class LogParser(FileSystemEventHandler):
                         if pool_id != current_pool_id or worker_name.startswith("0HNCEBF7"):
                             continue
                         hashrate = float(hashrate) * {"T": 1e12, "P": 1e15, "G": 1e9}.get(unit, 1)
-                        if hashrate > 500_000_000_000_000:  # Максимум 500 TH/s
-                            logger.warning(f"Нереалистичный хэшрейт {hashrate} для воркера {worker_name}, игнорируем")
+                        if hashrate > 500_000_000_000_000:  # Maximum 500 TH/s
+                            logger.warning(f"Unrealistic hashrate {hashrate} for worker {worker_name}, ignoring")
                             continue
                         worker_stats[worker_name] = {
                             "hashrate": hashrate,
@@ -86,7 +90,7 @@ class LogParser(FileSystemEventHandler):
                             "pool_id": pool_id
                         }
                         self.active_workers.add(worker_name)
-                        logger.info(f"Обновлена статистика воркера {worker_name}: хэшрейт {format_hashrate(hashrate)}, шары {shares}")
+                        logger.info(f"Updated worker stats for {worker_name}: hashrate {format_hashrate(hashrate)}, shares {shares}")
                         continue
                     share_accepted = re.search(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{1,6})\] \[I\] \[(\S+?)\] \[([A-Z0-9]+)\] Share accepted: D=([\d.]+)", line)
                     if share_accepted:
@@ -102,7 +106,7 @@ class LogParser(FileSystemEventHandler):
                             "shares": shares,
                             "pool_id": pool_id
                         }
-                        logger.info(f"Шара принята для воркера {worker_name}, всего шар: {shares}")
+                        logger.info(f"Share accepted for worker {worker_name}, total shares: {shares}")
                         continue
                     block_found = re.search(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{1,6})\] \[I\] \[(\S+?)\] Daemon accepted block (\d+) \[([0-9a-f]+)\] submitted by (\S+)", line)
                     if block_found:
@@ -112,7 +116,7 @@ class LogParser(FileSystemEventHandler):
                         try:
                             timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=timezone.utc)
                         except ValueError as e:
-                            logger.error(f"Ошибка парсинга времени блока '{timestamp_str}': {e}")
+                            logger.error(f"Error parsing block timestamp '{timestamp_str}': {e}")
                             continue
                         if pool_id not in block_timestamps:
                             block_timestamps[pool_id] = []
@@ -134,6 +138,6 @@ class LogParser(FileSystemEventHandler):
                             asyncio.create_task(delete_message_later(chat_id, message.message_id))
                         continue
                     if "Daemon accepted block" in line or "block" in line.lower():
-                        logger.warning(f"Строка лога похожа на блок, но не распознана: {line.strip()}")
+                        logger.warning(f"Log line resembles a block but not parsed: {line.strip()}")
         except Exception as e:
-            logger.error(f"Ошибка при парсинге лога: {e}")
+            logger.error(f"Error parsing log: {e}")

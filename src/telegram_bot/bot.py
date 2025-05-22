@@ -390,16 +390,18 @@ async def send_worker_stats_report(chat_id: int):
     await clear_previous_worker_stats(chat_id)
     current_mode = get_current_mode()
     pool_id = modes.get(current_mode, {"pool_id": f"{current_mode}-sha256-1"})["pool_id"]
+    logger.info(f"Worker stats: {worker_stats}")
     real_workers = {}
     for worker_name, stats in worker_stats.items():
+        logger.info(f"Evaluating worker {worker_name}: {stats}")
         if (not worker_name.startswith("0HNCEBF7") and
             stats["hashrate"] > 0 and
-            stats["hashrate"] <= 500_000_000_000_000 and  # Максимум 500 TH/s
+            stats["hashrate"] <= 500_000_000_000_000 and
             stats["pool_id"] == pool_id):
             short_name = get_worker_short_name(worker_name)
             if short_name not in real_workers or stats["last_seen"] > real_workers[short_name]["last_seen"]:
                 real_workers[short_name] = stats
-                logger.info(f"Добавлен воркер {short_name} с хэшрейтом {format_hashrate(stats['hashrate'])}")
+                logger.info(f"Added worker {short_name} with hashrate {format_hashrate(stats['hashrate'])}")
     if not real_workers:
         report = f"📈 *Статистика воркеров ({pool_id}):*\nНет активных воркеров."
         message = await bot.send_message(
@@ -467,31 +469,21 @@ async def monitor_workers():
             last_seen = stats["last_seen"]
             hashrate = stats["hashrate"]
             pool_id = stats.get("pool_id", "unknown")
+            # Temporarily disable worker removal to test persistence
+            """
             if pool_id != current_pool_id:
+                logger.info(f"Removing worker {worker_name}: pool_id mismatch ({pool_id} != {current_pool_id})")
                 workers_to_remove.append(worker_name)
-                logger.info(f"Удален воркер {worker_name} из-за несовпадения пула: {pool_id} != {current_pool_id}")
                 continue
             if (current_time - last_seen).total_seconds() > 600:
+                logger.info(f"Removing worker {worker_name}: inactive for {(current_time - last_seen).total_seconds()} seconds")
                 workers_to_remove.append(worker_name)
-                if not worker_name.startswith("0HNCEBF7"):
-                    short_name = get_worker_short_name(worker_name)
-                    for chat_id in authorized_chats:
-                        message = await bot.send_message(
-                            chat_id,
-                            f"⚠️ *Майнер отключился!*\n"
-                            f"ID: `{short_name}`\n"
-                            f"Последний хэшрейт: `{format_hashrate(hashrate)}`\n"
-                            f"Последнее количество шар: `{stats['shares']}`\n"
-                            f"Время: `{format_timestamp(current_time, chat_id)}`",
-                            parse_mode=ParseMode.MARKDOWN,
-                            reply_markup=build_mode_keyboard()
-                        )
-                        asyncio.create_task(delete_message_later(chat_id, message.message_id))
                 continue
-            if hashrate > 500_000_000_000_000:  # Максимум 500 TH/s
+            if hashrate > 500_000_000_000_000:
+                logger.info(f"Removing worker {worker_name}: unrealistic hashrate {hashrate}")
                 workers_to_remove.append(worker_name)
-                logger.warning(f"Воркер {worker_name} удален из-за нереалистичного хэшрейта: {hashrate}")
                 continue
+            """
         for worker_name in workers_to_remove:
             if worker_name in worker_stats:
                 del worker_stats[worker_name]
