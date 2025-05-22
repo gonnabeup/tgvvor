@@ -1,5 +1,6 @@
 import asyncio
 import re
+import os
 from datetime import datetime, timezone, timedelta
 import logging
 from watchdog.observers import Observer
@@ -16,22 +17,27 @@ class LogParser(FileSystemEventHandler):
         self.last_position = 0
         self.active_workers = set()
         self.loop = loop
+        logger.info(f"LogParser initialized with LOG_FILE_PATH: {LOG_FILE_PATH}")
 
     def on_modified(self, event):
+        logger.info(f"Watchdog event triggered: {event.src_path}, event_type: {event.event_type}")
         if event.src_path != LOG_FILE_PATH:
+            logger.info(f"Ignoring event for {event.src_path}, expected {LOG_FILE_PATH}")
             return
         asyncio.run_coroutine_threadsafe(self.parse_log(), self.loop)
 
     async def parse_log(self):
-        # Move the import here to avoid circular import
         from .bot import bot, authorized_chats, build_mode_keyboard, delete_message_later, worker_stats, worker_id_to_name
         if not os.path.exists(LOG_FILE_PATH):
             logger.error(f"Log file {LOG_FILE_PATH} does not exist.")
             return
-        logger.info(f"Parsing log file {LOG_FILE_PATH} from position {self.last_position}")
         try:
+            file_stat = os.stat(LOG_FILE_PATH)
+            mtime = datetime.fromtimestamp(file_stat.st_mtime, tz=timezone.utc)
+            logger.info(f"Parsing log file {LOG_FILE_PATH} from position {self.last_position}, last modified: {mtime}")
             current_mode = get_current_mode()
             current_pool_id = modes.get(current_mode, {"pool_id": f"{current_mode}-sha256-1"})["pool_id"]
+            logger.info(f"Current mode: {current_mode}, pool_id: {current_pool_id}")
             with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
                 f.seek(self.last_position)
                 lines = f.readlines()
@@ -48,6 +54,7 @@ class LogParser(FileSystemEventHandler):
                     if worker_connect:
                         timestamp, pool_id, worker_id, worker_name = worker_connect.groups()
                         if pool_id != current_pool_id or worker_id.startswith("0HNCEBF7"):
+                            logger.info(f"Skipping worker_connect: pool_id={pool_id}, worker_id={worker_id}")
                             continue
                         worker_id_to_name[worker_id] = worker_name
                         logger.info(f"Mapped worker_id {worker_id} to worker_name {worker_name}")
@@ -78,9 +85,10 @@ class LogParser(FileSystemEventHandler):
                     if worker_stats_match:
                         timestamp, pool_id, worker_name, hashrate, unit, shares = worker_stats_match.groups()
                         if pool_id != current_pool_id or worker_name.startswith("0HNCEBF7"):
+                            logger.info(f"Skipping worker_stats: pool_id={pool_id}, worker_name={worker_name}")
                             continue
                         hashrate = float(hashrate) * {"T": 1e12, "P": 1e15, "G": 1e9}.get(unit, 1)
-                        if hashrate > 500_000_000_000_000:  # Maximum 500 TH/s
+                        if hashrate > 500_000_000_000_000:
                             logger.warning(f"Unrealistic hashrate {hashrate} for worker {worker_name}, ignoring")
                             continue
                         worker_stats[worker_name] = {
@@ -96,6 +104,7 @@ class LogParser(FileSystemEventHandler):
                     if share_accepted:
                         timestamp, pool_id, worker_id, difficulty = share_accepted.groups()
                         if pool_id != current_pool_id or worker_id.startswith("0HNCEBF7"):
+                            logger.info(f"Skipping share_accepted: pool_id={pool_id}, worker_id={worker_id}")
                             continue
                         worker_name = worker_id_to_name.get(worker_id, worker_id)
                         self.active_workers.add(worker_name)

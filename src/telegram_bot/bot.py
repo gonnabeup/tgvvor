@@ -13,6 +13,7 @@ from .config import CONFIG, load_user_settings, save_user_settings, get_current_
 from .utils import format_hashrate, format_timestamp, get_worker_short_name, format_uptime
 from .log_parser import LogParser
 from pathlib import Path
+import os
 
 logger = logging.getLogger(__name__)
 bot = Bot(token="Ytokeeeen")  
@@ -197,9 +198,9 @@ async def settings_callback(callback: types.CallbackQuery):
 async def set_timezone_callback(callback: types.CallbackQuery):
     chat_id = callback.message.chat.id
     timezone = callback.data.split(":", 1)[1]
-    user_settings = load_user_settings()  # Load current settings
+    user_settings = load_user_settings()
     user_settings[str(chat_id)] = {"timezone": timezone}
-    save_user_settings(user_settings)     # Pass as argument!
+    save_user_settings(user_settings)
     await callback.answer(f"Часовой пояс установлен: {timezone}")
     await callback.message.edit_text(
         "✅ Часовой пояс обновлён.",
@@ -225,14 +226,11 @@ async def get_hashrate(node, session: aiohttp.ClientSession, algorithm: str):
     url = f"http://{node['host']}:{node['port']}"
     headers = {"content-type": "application/json"}
     params = [120, -1]
-    # --- PATCH START ---
-    # Check if this node is DigiByte and force "sha256d" param
     coin = node.get("coin", "").lower()
     if coin == "digibyte":
         params.append("sha256d")
     elif algorithm.lower() == "sha256d":
         params.append("sha256d")
-    # --- PATCH END ---
     payload = {
         "method": "getnetworkhashps",
         "params": params,
@@ -464,6 +462,7 @@ async def monitor_workers():
         current_time = datetime.now(timezone.utc)
         current_mode = get_current_mode()
         current_pool_id = modes.get(current_mode, {"pool_id": f"{current_mode}-sha256-1"})["pool_id"]
+        logger.info(f"monitor_workers: Checking workers, current_pool_id={current_pool_id}")
         workers_to_remove = []
         for worker_name, stats in list(worker_stats.items()):
             last_seen = stats["last_seen"]
@@ -506,10 +505,18 @@ async def start_log_monitoring():
     loop = asyncio.get_running_loop()
     event_handler = LogParser(loop)
     log_file_path = CONFIG["log_file_path"]
-    log_dir = str(Path(log_file_path).parent)  # <-- get directory
+    log_dir = str(Path(log_file_path).parent)
+    logger.info(f"Starting log monitoring for {log_file_path}, watching directory {log_dir}")
+    if not os.path.exists(log_file_path):
+        logger.error(f"Log file {log_file_path} does not exist")
+    else:
+        file_stat = os.stat(log_file_path)
+        mtime = datetime.fromtimestamp(file_stat.st_mtime, tz=timezone.utc)
+        logger.info(f"Log file {log_file_path} last modified: {mtime}")
     observer = Observer()
-    observer.schedule(event_handler, path=log_dir, recursive=False)  # <-- use directory
+    observer.schedule(event_handler, path=log_dir, recursive=False)
     observer.start()
+    logger.info(f"Watchdog observer started for {log_dir}")
     try:
         while True:
             await asyncio.sleep(1)
