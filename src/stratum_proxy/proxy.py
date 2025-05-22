@@ -89,7 +89,12 @@ async def handle_client(miner_reader, miner_writer, current_mode):
             logger.error(f"Ошибка перенаправления к пулу для {addr}: {e}")
         finally:
             pool_writer.close()
-            await pool_writer.wait_closed()
+            try:
+                await pool_writer.wait_closed()
+            except ConnectionResetError:
+                logger.warning(f"Pool connection reset by peer for {addr} (safe to ignore)")
+            except Exception as e:
+                logger.error(f"Error while closing pool_writer for {addr}: {e}")
 
     async def forward_to_miner():
         try:
@@ -103,7 +108,12 @@ async def handle_client(miner_reader, miner_writer, current_mode):
             logger.error(f"Ошибка перенаправления к майнеру для {addr}: {e}")
         finally:
             miner_writer.close()
-            await miner_writer.wait_closed()
+            try:
+                await miner_writer.wait_closed()
+            except ConnectionResetError:
+                logger.warning(f"Miner connection reset by peer for {addr} (safe to ignore)")
+            except Exception as e:
+                logger.error(f"Error while closing miner_writer for {addr}: {e}")
 
     try:
         await asyncio.gather(forward_to_pool(), forward_to_miner())
