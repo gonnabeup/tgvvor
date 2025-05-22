@@ -497,6 +497,8 @@ async def monitor_workers():
         worker_stats.clear()
         for worker_name, stats in unique_workers.values():
             worker_stats[worker_name] = stats
+        for chat_id in authorized_chats:
+            await send_worker_stats_report(chat_id)
         await asyncio.sleep(60)
 
 async def start_log_monitoring():
