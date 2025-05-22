@@ -388,18 +388,30 @@ async def send_worker_stats_report(chat_id: int):
     await clear_previous_worker_stats(chat_id)
     current_mode = get_current_mode()
     pool_id = modes.get(current_mode, {"pool_id": f"{current_mode}-sha256-1"})["pool_id"]
-    logger.info(f"Worker stats: {worker_stats}")
+
+    # --- STEP 1: Filter workers by user wallet ---
+    alias = None
+    for k, v in users.items():
+        if v == chat_id:
+            alias = k
+            break
+    user_wallet = None
+    if alias and "alias" in modes[current_mode]:
+        user_wallet = modes[current_mode]["alias"].get(alias)
+
     real_workers = {}
     for worker_name, stats in worker_stats.items():
-        logger.info(f"Evaluating worker {worker_name}: {stats}")
-        if (not worker_name.startswith("0HNCEBF7") and
-            stats["hashrate"] > 0 and
-            stats["hashrate"] <= 500_000_000_000_000 and
-            stats["pool_id"] == pool_id):
+        if (
+            not worker_name.startswith("0HNCEBF7")
+            and stats["hashrate"] > 0
+            and stats["hashrate"] <= 500_000_000_000_000
+            and stats["pool_id"] == pool_id
+            and (not user_wallet or worker_name.startswith(user_wallet))
+        ):
             short_name = get_worker_short_name(worker_name)
             if short_name not in real_workers or stats["last_seen"] > real_workers[short_name]["last_seen"]:
                 real_workers[short_name] = stats
-                logger.info(f"Added worker {short_name} with hashrate {format_hashrate(stats['hashrate'])}")
+
     if not real_workers:
         report = f"📈 *Статистика воркеров ({pool_id}):*\nНет активных воркеров."
         message = await bot.send_message(
@@ -462,27 +474,25 @@ async def monitor_workers():
         current_time = datetime.now(timezone.utc)
         current_mode = get_current_mode()
         current_pool_id = modes.get(current_mode, {"pool_id": f"{current_mode}-sha256-1"})["pool_id"]
-        logger.info(f"monitor_workers: Checking workers, current_pool_id={current_pool_id}")
+        # logger.info(f"monitor_workers: Checking workers, current_pool_id={current_pool_id}")
         workers_to_remove = []
         for worker_name, stats in list(worker_stats.items()):
             last_seen = stats["last_seen"]
             hashrate = stats["hashrate"]
             pool_id = stats.get("pool_id", "unknown")
-            # Temporarily disable worker removal to test persistence
-            """
+            # --- STEP 3: Restore worker removal ---
             if pool_id != current_pool_id:
-                logger.info(f"Removing worker {worker_name}: pool_id mismatch ({pool_id} != {current_pool_id})")
+                # logger.info(f"Removing worker {worker_name}: pool_id mismatch ({pool_id} != {current_pool_id})")
                 workers_to_remove.append(worker_name)
                 continue
             if (current_time - last_seen).total_seconds() > 600:
-                logger.info(f"Removing worker {worker_name}: inactive for {(current_time - last_seen).total_seconds()} seconds")
+                # logger.info(f"Removing worker {worker_name}: inactive for {(current_time - last_seen).total_seconds()} seconds")
                 workers_to_remove.append(worker_name)
                 continue
             if hashrate > 500_000_000_000_000:
-                logger.info(f"Removing worker {worker_name}: unrealistic hashrate {hashrate}")
+                # logger.info(f"Removing worker {worker_name}: unrealistic hashrate {hashrate}")
                 workers_to_remove.append(worker_name)
                 continue
-            """
         for worker_name in workers_to_remove:
             if worker_name in worker_stats:
                 del worker_stats[worker_name]
