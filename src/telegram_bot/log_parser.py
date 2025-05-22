@@ -38,6 +38,7 @@ class LogParser(FileSystemEventHandler):
                 if not lines:
                     return
                 for line in lines:
+                    logger.debug(f"Parsing line: {line.strip()}")
                     if f"[{current_pool_id}]" not in line:
                         continue
                     worker_connect = re.search(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{1,6})\] \[I\] \[(\S+?)\] \[([A-Z0-9]+)\] Authorized worker (\S+)", line)
