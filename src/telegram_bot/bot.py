@@ -12,6 +12,7 @@ import aiohttp
 from .config import CONFIG, load_user_settings, save_user_settings, get_current_mode, set_current_mode, get_last_mode_change_time, TIMEZONES
 from .utils import format_hashrate, format_timestamp, get_worker_short_name, format_uptime
 from .log_parser import LogParser
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 bot = Bot(token="Ytokeeeen")  
@@ -510,10 +511,12 @@ async def monitor_workers():
 async def start_log_monitoring():
     from .log_parser import LogParser
     from watchdog.observers import Observer
-    loop = asyncio.get_running_loop()  # <-- Add this line
-    event_handler = LogParser(loop)    # <-- Pass loop here
+    loop = asyncio.get_running_loop()
+    event_handler = LogParser(loop)
+    log_file_path = CONFIG["log_file_path"]
+    log_dir = str(Path(log_file_path).parent)  # <-- get directory
     observer = Observer()
-    observer.schedule(event_handler, path=CONFIG["log_file_path"], recursive=False)
+    observer.schedule(event_handler, path=log_dir, recursive=False)  # <-- use directory
     observer.start()
     try:
         while True:

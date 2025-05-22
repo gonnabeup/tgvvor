@@ -9,7 +9,7 @@ from .config import CONFIG, get_current_mode, modes
 from .utils import format_hashrate, format_timestamp, get_worker_short_name
 
 logger = logging.getLogger(__name__)
-LOG_FILE_PATH = "/home/simple1/logs/"
+LOG_FILE_PATH = "/home/simple1/logs/mcpool.log"
 
 class LogParser(FileSystemEventHandler):
     def __init__(self, loop):
