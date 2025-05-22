@@ -389,7 +389,7 @@ async def send_worker_stats_report(chat_id: int):
     current_mode = get_current_mode()
     pool_id = modes.get(current_mode, {"pool_id": f"{current_mode}-sha256-1"})["pool_id"]
 
-    # --- STEP 1: Filter workers by user wallet ---
+    # --- STEP 1: Filter workers by user wallet, but show all for superadmin ---
     alias = None
     for k, v in users.items():
         if v == chat_id:
@@ -401,13 +401,23 @@ async def send_worker_stats_report(chat_id: int):
 
     real_workers = {}
     for worker_name, stats in worker_stats.items():
-        if (
-            not worker_name.startswith("0HNCEBF7")
-            and stats["hashrate"] > 0
-            and stats["hashrate"] <= 500_000_000_000_000
-            and stats["pool_id"] == pool_id
-            and (not user_wallet or worker_name.startswith(user_wallet))
-        ):
+        # If superadmin, show all workers
+        if chat_id == 1146015328:
+            show = (
+                not worker_name.startswith("0HNCEBF7")
+                and stats["hashrate"] > 0
+                and stats["hashrate"] <= 500_000_000_000_000
+                and stats["pool_id"] == pool_id
+            )
+        else:
+            show = (
+                not worker_name.startswith("0HNCEBF7")
+                and stats["hashrate"] > 0
+                and stats["hashrate"] <= 500_000_000_000_000
+                and stats["pool_id"] == pool_id
+                and (not user_wallet or worker_name.startswith(user_wallet))
+            )
+        if show:
             short_name = get_worker_short_name(worker_name)
             if short_name not in real_workers or stats["last_seen"] > real_workers[short_name]["last_seen"]:
                 real_workers[short_name] = stats
