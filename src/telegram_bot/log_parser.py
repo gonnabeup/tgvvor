@@ -28,29 +28,24 @@ class LogParser(FileSystemEventHandler):
         asyncio.run_coroutine_threadsafe(self.parse_log(), self.loop)
 
     async def parse_log(self):
-        from .bot import bot, authorized_chats, build_mode_keyboard, delete_message_later, worker_stats, worker_id_to_name
+        from .bot import bot, authorized_chats, build_mode_keyboard, delete_message_later, worker_stats, worker_id_to_name, block_timestamps
         if not os.path.exists(LOG_FILE_PATH):
             logger.error(f"Log file {LOG_FILE_PATH} does not exist.")
             return
         try:
             file_stat = os.stat(LOG_FILE_PATH)
             mtime = datetime.fromtimestamp(file_stat.st_mtime, tz=timezone.utc)
-            # logger.info(f"Parsing log file {LOG_FILE_PATH} from position {self.last_position}, last modified: {mtime}")
             current_mode = get_current_mode()
             current_pool_id = modes.get(current_mode, {"pool_id": f"{current_mode}-sha256-1"})["pool_id"]
-            # logger.info(f"Current mode: {current_mode}, pool_id: {current_pool_id}")
             with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
                 f.seek(self.last_position)
                 lines = f.readlines()
-                # logger.info(f"Read {len(lines)} new lines")
                 self.last_position = f.tell()
                 if not lines:
-                    # logger.info("No new lines to parse")
                     return
                 for line in lines:
-                    # logger.debug(f"Processing line: {line.strip()}")
+                    logger.debug(f"Processing log line: {line.strip()}")
                     if f"[{current_pool_id}]" not in line:
-                        # logger.info(f"Skipping line due to pool_id mismatch: {line.strip()}")
                         continue
                     if "[StatsRecorder]" in line and not re.search(r"Worker \S+: [\d.]+ [TPG]H/s", line):
                         # logger.warning(f"StatsRecorder line not matched by hashrate regex: {line.strip()}")
@@ -131,21 +126,29 @@ class LogParser(FileSystemEventHandler):
                         }
                         # logger.info(f"Share accepted for worker {worker_name}, total shares: {shares}")
                         continue
-                    block_found = re.search(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{1,6})\] \[I\] \[(\S+?)\] Daemon accepted block (\d+) \[([0-9a-f]+)\] submitted by (\S+)", line)
+                    block_found = re.search(
+                        r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,6})?)\] \[I\] \[(\S+?)\] Daemon accepted block (\d+) \[([0-9a-f]+)\] submitted by (\S+)",
+                        line
+                    )
                     if block_found:
+                        logger.info(f"Block regex matched: {line.strip()}")
                         timestamp_str, pool_id, block_height, block_hash, miner = block_found.groups()
                         if pool_id != current_pool_id:
-                            # logger.info(f"Skipping block_found due to pool_id mismatch: pool_id={pool_id}, expected={current_pool_id}")
+                            logger.debug(f"Block pool_id mismatch: {pool_id} != {current_pool_id}")
                             continue
                         try:
                             timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=timezone.utc)
-                        except ValueError as e:
-                            logger.error(f"Error parsing block timestamp '{timestamp_str}': {e}")
-                            continue
+                        except ValueError:
+                            try:
+                                timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                            except Exception as e:
+                                logger.error(f"Error parsing block timestamp '{timestamp_str}': {e}")
+                                continue
                         if pool_id not in block_timestamps:
                             block_timestamps[pool_id] = []
                         block_timestamps[pool_id].append(timestamp)
                         block_timestamps[pool_id] = [ts for ts in block_timestamps[pool_id] if (datetime.now(timezone.utc) - ts).total_seconds() <= 24 * 3600]
+                        logger.info(f"Block found! Height: {block_height}, Hash: {block_hash}, Miner: {miner}, Time: {timestamp}")
                         for chat_id in authorized_chats:
                             report = f"🎉 *Блок найден!*\n" \
                                      f"Сеть: `{pool_id}`\n" \
@@ -159,6 +162,7 @@ class LogParser(FileSystemEventHandler):
                                 parse_mode=ParseMode.MARKDOWN,
                                 reply_markup=build_mode_keyboard()
                             )
+                            logger.info(f"Block notification sent to chat {chat_id}")
                             asyncio.create_task(delete_message_later(chat_id, message.message_id))
                         continue
                     # logger.info(f"Line not matched by any pattern: {line.strip()}")
